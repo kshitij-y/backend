@@ -1,0 +1,199 @@
+{
+  "info": {
+    "name": "Mentor Platform API",
+    "_postman_id": "mentor-platform-collection",
+    "description": "API collection for Mentor-Mentee platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"123456\",\n  \"role\": \"MENTOR\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{base_url}}/api/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "users", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mentor",
+      "item": [
+        {
+          "name": "Create Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bio\": \"Full-stack mentor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mentors/profile",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mentors", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Create Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan\": \"THREE_MONTH\",\n  \"price\": 5000\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mentors/plans",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mentors", "plans"]
+            }
+          }
+        },
+        {
+          "name": "Get Mentors",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/mentors",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mentors"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Mentorship",
+      "item": [
+        {
+          "name": "Create Mentorship",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mentorId\": \"<mentor-id>\",\n  \"planId\": \"<plan-id>\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/mentorships",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mentorships"]
+            }
+          }
+        },
+        {
+          "name": "Get My Mentorships",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/mentorships/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "mentorships", "me"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
