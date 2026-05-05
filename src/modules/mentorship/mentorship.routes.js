@@ -1,24 +1,24 @@
-// import express from "express";
-// import {
-//   createMentorship,
-//   getMyMentorships,
-//   getMentorshipById,
-//   updateMentorshipStatus,
-// } from "./mentorship.controller.js";
+import express from "express";
+import {
+  createMentorship,
+  getMyMentorships,
+  getMentorshipById,
+  updateMentorshipStatus,
+} from "./mentorship.controller.js";
 
-// import authMiddleware from "../../middleware/auth.middleware.js";
+import authMiddleware from "../../middleware/auth.middleware.js";
 
-// const router = express.Router();
+const router = express.Router();
 
-// //
-// // PROTECTED
-// //
-// router.post("/", authMiddleware, createMentorship);
+//
+// PROTECTED
+//
+router.post("/", authMiddleware, createMentorship);
 
-// router.get("/me", authMiddleware, getMyMentorships);
+router.get("/me", authMiddleware, getMyMentorships);
 
-// router.get("/:id", authMiddleware, getMentorshipById);
+router.get("/:id", authMiddleware, getMentorshipById);
 
-// router.patch("/:id/status", authMiddleware, updateMentorshipStatus);
+router.patch("/:id/status", authMiddleware, updateMentorshipStatus);
 
-// export default router;
+export default router;

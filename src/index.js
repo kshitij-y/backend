@@ -7,8 +7,8 @@ import notFound from "./middleware/notFound.middleware.js";
 import errorHandler from "./middleware/error.middleware.js";
 
 import authRoutes from "./modules/auth/auth.routes.js";
-// import userRoutes from "./modules/user/user.routes.js";
-// import mentorRoutes from "./modules/mentor/mentor.routes.js";
+import userRoutes from "./modules/user/user.routes.js";
+import mentorRoutes from "./modules/mentor/mentor.routes.js";
 // import mentorshipRoutes from "./modules/mentorship/mentorship.routes.js";
 
 dotenv.config();
@@ -33,8 +33,8 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-// app.use("/api/users", userRoutes);
-// app.use("/api/mentors", mentorRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/mentors", mentorRoutes);
 // app.use("/api/mentorships", mentorshipRoutes);
 
 app.use(notFound);
