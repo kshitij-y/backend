@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ENUMS
+
+enum Role {
+  MENTOR
+  MENTEE
+}
+
+enum MentorshipPlan {
+  THREE_MONTH
+  SIX_MONTH
+  TWELVE_MONTH
+}
+
+enum MentorshipStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// MODELS
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+
+  mentorProfile MentorProfile?
+
+  mentorMentorships Mentorship[] @relation("MentorMentorships")
+  menteeMentorships Mentorship[] @relation("MenteeMentorships")
+
+  mentorPlans MentorPlan[]
+
+  blogs Blog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model MentorProfile {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  bio String?
+
+  user User @relation(fields: [userId], references: [id])
+
+  expertises MentorExpertise[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// EXPERTISE (NORMALIZED)
+
+model Expertise {
+  id   String @id @default(uuid())
+  name String @unique
+
+  mentorLinks MentorExpertise[]
+}
+
+model MentorExpertise {
+  id                String @id @default(uuid())
+  mentorProfileId   String
+  expertiseId       String
+
+  mentorProfile MentorProfile @relation(fields: [mentorProfileId], references: [id])
+  expertise     Expertise     @relation(fields: [expertiseId], references: [id])
+
+  @@unique([mentorProfileId, expertiseId])
+}
+
+// MENTOR PLAN
+
+model MentorPlan {
+  id        String @id @default(uuid())
+  mentorId  String
+
+  mentor User @relation(fields: [mentorId], references: [id])
+
+  plan  MentorshipPlan
+  price Int
+
+  mentorships Mentorship[]
+
+  createdAt DateTime @default(now())
+
+  @@index([mentorId])
+  @@unique([mentorId, plan])
+}
+
+// MENTORSHIP (CORE)
+
+model Mentorship {
+  id String @id @default(uuid())
+
+  mentorId String
+  menteeId String
+  planId   String
+
+  mentor User @relation("MentorMentorships", fields: [mentorId], references: [id])
+  mentee User @relation("MenteeMentorships", fields: [menteeId], references: [id])
+
+  plan MentorPlan @relation(fields: [planId], references: [id])
+
+  startDate DateTime
+  endDate   DateTime
+
+  status MentorshipStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mentorId])
+  @@index([menteeId])
+  @@index([planId])
+  @@index([status])
+  @@index([mentorId, status])
+}
+
+// BLOG (OPTIONAL)
+
+model Blog {
+  id       String @id @default(uuid())
+  authorId String
+
+  title   String
+  content String
+
+  author User @relation(fields: [authorId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([authorId])
+}
