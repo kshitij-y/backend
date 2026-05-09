@@ -1,27 +1,59 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import { sendResponse } from "../../utils/response.js";
-
+import streamClient from "../../config/stream.js";
 import {
   createMentorshipService,
   getMyMentorshipsService,
   getMentorshipByIdService,
   updateMentorshipStatusService,
+  attachStreamChannelToMentorshipService
 } from "./mentorship.service.js";
 
 //
 // CREATE
 //
-export const createMentorship = asyncHandler(async (req, res) => {
-  const { mentorId, planId } = req.body;
+export const createMentorship = asyncHandler(
+  async (req, res) => {
+    const { mentorId, planId } = req.body;
 
-  const mentorship = await createMentorshipService(
-    req.user.id,
-    mentorId,
-    planId
-  );
+    //
+    // 1. create mentorship
+    //
+    const mentorship =
+      await createMentorshipService(
+        req.user.id,
+        mentorId,
+        planId
+      );
 
-  sendResponse(res, 201, mentorship, "Mentorship created");
-});
+    //
+    // 2. attach stream channel
+    //
+    let updatedMentorship = mentorship;
+
+    try {
+      updatedMentorship =
+        await attachStreamChannelToMentorshipService(
+          mentorship.id
+        );
+    } catch (error) {
+      console.error(
+        "Stream sync failed:",
+        error.message
+      );
+    }
+
+    //
+    // 3. send response
+    //
+    sendResponse(
+      res,
+      201,
+      updatedMentorship,
+      "Mentorship created"
+    );
+  }
+);
 
 //
 // GET MY

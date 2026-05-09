@@ -2,9 +2,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// datasource db {
+//   provider = "postgresql"
+//   url      = env("DATABASE_URL")
+//   // directUrl = env("DIRECT_URL")
+// }
+
+
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ENUMS
@@ -26,6 +34,12 @@ enum MentorshipStatus {
   CANCELLED
 }
 
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
 // MODELS
 
 model User {
@@ -40,6 +54,8 @@ model User {
   mentorMentorships Mentorship[] @relation("MentorMentorships")
   menteeMentorships Mentorship[] @relation("MenteeMentorships")
 
+  mentorSessions Session[] @relation("MentorSessions")
+  menteeSessions Session[] @relation("MenteeSessions")
   mentorPlans MentorPlan[]
 
   blogs Blog[]
@@ -111,6 +127,8 @@ model Mentorship {
   menteeId String
   planId   String
 
+  streamChannelId String? @unique
+
   mentor User @relation("MentorMentorships", fields: [mentorId], references: [id])
   mentee User @relation("MenteeMentorships", fields: [menteeId], references: [id])
 
@@ -121,6 +139,8 @@ model Mentorship {
 
   status MentorshipStatus @default(ACTIVE)
 
+  sessions Session[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -129,6 +149,38 @@ model Mentorship {
   @@index([planId])
   @@index([status])
   @@index([mentorId, status])
+}
+
+model Session {
+  id String @id @default(uuid())
+
+  mentorshipId String
+
+  mentorId String
+  menteeId String
+
+  title       String?
+  description String?
+
+  startTime DateTime
+  endTime   DateTime
+
+  streamCallId String @unique
+
+  status SessionStatus @default(SCHEDULED)
+
+  mentorship Mentorship @relation(fields: [mentorshipId], references: [id])
+
+  mentor User @relation("MentorSessions", fields: [mentorId], references: [id])
+  mentee User @relation("MenteeSessions", fields: [menteeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mentorId])
+  @@index([menteeId])
+  @@index([mentorshipId])
+  @@index([status])
 }
 
 // BLOG (OPTIONAL)
