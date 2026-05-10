@@ -1,0 +1,95 @@
+backend/
+├─ generated/
+│  └─ prisma/
+│     ├─ internal/
+│     │  ├─ class.ts
+│     │  ├─ prismaNamespace.ts
+│     │  └─ prismaNamespaceBrowser.ts
+│     ├─ models/
+│     │  ├─ Blog.ts
+│     │  ├─ Expertise.ts
+│     │  ├─ MentorExpertise.ts
+│     │  ├─ MentorPlan.ts
+│     │  ├─ MentorProfile.ts
+│     │  ├─ Mentorship.ts
+│     │  └─ User.ts
+│     ├─ browser.ts
+│     ├─ client.ts
+│     ├─ commonInputTypes.ts
+│     ├─ enums.ts
+│     └─ models.ts
+├─ prisma/
+│  ├─ migrations/
+│  │  ├─ 20260509221627_new/
+│  │  │  └─ migration.sql
+│  │  ├─ 20260510003842_mentor_onboarding/
+│  │  │  └─ migration.sql
+│  │  ├─ 20260510194929_calender_api/
+│  │  │  └─ migration.sql
+│  │  └─ migration_lock.toml
+│  └─ schema.prisma
+├─ src/
+│  ├─ config/
+│  │  ├─ db.js
+│  │  └─ stream.js
+│  ├─ integrations/
+│  │  ├─ email/
+│  │  │  ├─ templates/
+│  │  │  ├─ email.service.js
+│  │  │  ├─ email.templates.js
+│  │  │  └─ nodemailer.js
+│  │  └─ google/
+│  │     └─ googleClient.js
+│  ├─ modules/
+│  │  ├─ auth/
+│  │  │  ├─ auth.constants.js
+│  │  │  ├─ auth.controller.js
+│  │  │  ├─ auth.routes.js
+│  │  │  ├─ auth.service.js
+│  │  │  ├─ auth.utils.js
+│  │  │  └─ auth.validation.js
+│  │  ├─ calendar/
+│  │  │  ├─ calendar.controller.js
+│  │  │  ├─ calendar.repository.js
+│  │  │  ├─ calendar.routes.js
+│  │  │  └─ calendar.service.js
+│  │  ├─ mentor/
+│  │  │  ├─ mentor.controller.js
+│  │  │  ├─ mentor.routes.js
+│  │  │  ├─ mentor.service.js
+│  │  │  └─ mentor.validation.js
+│  │  ├─ mentorship/
+│  │  │  ├─ mentorship.controller.js
+│  │  │  ├─ mentorship.routes.js
+│  │  │  └─ mentorship.service.js
+│  │  └─ user/
+│  │     ├─ user.controller.js
+│  │     ├─ user.routes.js
+│  │     └─ user.service.js
+│  ├─ shared/
+│  │  ├─ errors/
+│  │  │  └─ appError.js
+│  │  ├─ middleware/
+│  │  │  ├─ auth.middleware.js
+│  │  │  ├─ error.middleware.js
+│  │  │  ├─ notFound.middleware.js
+│  │  │  └─ role.middleware.js
+│  │  └─ utils/
+│  │     ├─ api-docs.json
+│  │     ├─ asyncHandler.js
+│  │     ├─ cookies.js
+│  │     ├─ jwt.js
+│  │     └─ response.js
+│  └─ index.js
+├─ test/
+│  └─ api-docs.json
+├─ .dockerignore
+├─ .env
+├─ .env.example
+├─ .gitignore
+├─ dockerfile
+├─ filetree.txt
+├─ package-lock.json
+├─ package.json
+├─ prisma.config.ts
+└─ README.md

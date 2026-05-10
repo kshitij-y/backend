@@ -1,5 +1,97 @@
 import prisma from "../../config/db.js";
 
+const isNonEmptyString = (value) =>
+	typeof value === "string" && value.trim().length > 0;
+
+const isProfileCompleted = ({
+	headline,
+	about,
+	experienceYears,
+}) => {
+	return (
+		isNonEmptyString(headline) &&
+		isNonEmptyString(about) &&
+		experienceYears !== null &&
+		experienceYears !== undefined
+	);
+};
+
+const toSlug = (value) => {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+};
+
+const buildOnboardingStatus = async (userId) => {
+	const mentorProfile = await prisma.mentorProfile.findUnique({
+		where: {
+			userId,
+		},
+		include: {
+			expertise: true,
+			mentorPlans: true,
+		},
+	});
+
+	const googleConnection = await prisma.oAuthConnection.findUnique({
+		where: {
+			userId_provider: {
+				userId,
+				provider: "google",
+			},
+		},
+		select: {
+			connected: true,
+		},
+	});
+
+	if (!mentorProfile) {
+		return {
+			completed: false,
+			steps: {
+				profile: false,
+				expertise: false,
+				plans: false,
+				googleCalendar: Boolean(googleConnection?.connected),
+			},
+			calendarConnected: Boolean(googleConnection?.connected),
+		};
+	}
+
+	const profileCompleted = isProfileCompleted(mentorProfile);
+	const expertiseCompleted = mentorProfile.expertise.length > 0;
+	const plansCompleted = mentorProfile.mentorPlans.length > 0;
+	const googleCalendarCompleted = Boolean(googleConnection?.connected);
+
+	return {
+		completed: profileCompleted && expertiseCompleted && plansCompleted,
+		steps: {
+			profile: profileCompleted,
+			expertise: expertiseCompleted,
+			plans: plansCompleted,
+			googleCalendar: googleCalendarCompleted,
+		},
+		calendarConnected: googleCalendarCompleted,
+	};
+};
+
+const syncOnboardingCompletion = async (userId) => {
+	const status = await buildOnboardingStatus(userId);
+
+	await prisma.user.update({
+		where: {
+			id: userId,
+		},
+		data: {
+			onboardingCompleted: status.completed,
+		},
+	});
+
+	return status;
+};
+
 
 
 /**
@@ -7,63 +99,7 @@ import prisma from "../../config/db.js";
  */
 export const getOnboardingStatusService =
   async (userId) => {
-    const mentorProfile =
-      await prisma.mentorProfile.findUnique({
-        where: {
-          userId,
-        },
-
-        include: {
-          expertise: true,
-          mentorPlans: true,
-        },
-      });
-
-    if (!mentorProfile) {
-      return {
-        completed: false,
-
-        steps: {
-          profile: false,
-          expertise: false,
-          plans: false,
-          googleCalendar: false,
-        },
-      };
-    }
-
-    const profileCompleted =
-      !!mentorProfile.headline &&
-      !!mentorProfile.about &&
-      mentorProfile.experienceYears !==
-        null;
-
-    const expertiseCompleted =
-      mentorProfile.expertise.length > 0;
-
-    const plansCompleted =
-      mentorProfile.mentorPlans.length > 0;
-
-    const googleCalendarCompleted =
-      mentorProfile.googleCalendarConnected;
-
-    const completed =
-      profileCompleted &&
-      expertiseCompleted &&
-      plansCompleted &&
-      googleCalendarCompleted;
-
-    return {
-      completed,
-
-      steps: {
-        profile: profileCompleted,
-        expertise: expertiseCompleted,
-        plans: plansCompleted,
-        googleCalendar:
-          googleCalendarCompleted,
-      },
-    };
+		return syncOnboardingCompletion(userId);
   };
 
 //////////////////////////////////////////////////////////////////////////
@@ -71,7 +107,7 @@ export const getOnboardingStatusService =
 //
 // CREATE PROFILE
 //
-export const createMentorProfileService = async (userId, bio) => {
+export const createMentorProfileService = async (userId, data) => {
 	const existing = await prisma.mentorProfile.findUnique({
 		where: { userId },
 	});
@@ -85,9 +121,22 @@ export const createMentorProfileService = async (userId, bio) => {
 	const profile = await prisma.mentorProfile.create({
 		data: {
 			userId,
-			bio,
+			headline: data.headline,
+			about: data.about,
+			experienceYears: data.experienceYears,
+			isAvailable:
+				data.isAvailable !== undefined
+					? data.isAvailable
+					: true,
+			profileCompleted: isProfileCompleted({
+				headline: data.headline,
+				about: data.about,
+				experienceYears: data.experienceYears,
+			}),
 		},
 	});
+
+	await syncOnboardingCompletion(userId);
 
 	return profile;
 };
@@ -101,18 +150,36 @@ export const getMyProfileService = async (userId) => {
 		select: {
 			id: true,
 			userId: true,
-			bio: true,
+			headline: true,
+			about: true,
+			experienceYears: true,
+			isAvailable: true,
+			profileCompleted: true,
 			createdAt: true,
 			updatedAt: true,
 
-			expertises: {
+			expertise: {
 				select: {
 					expertise: {
 						select: {
 							id: true,
 							name: true,
+							slug: true,
 						},
 					},
+				},
+			},
+
+			mentorPlans: {
+				select: {
+					id: true,
+					duration: true,
+					title: true,
+					description: true,
+					price: true,
+					isActive: true,
+					createdAt: true,
+					updatedAt: true,
 				},
 			},
 		},
@@ -126,14 +193,14 @@ export const getMyProfileService = async (userId) => {
 
 	return {
 		...profile,
-		expertises: profile.expertises.map((item) => item.expertise),
+		expertise: profile.expertise.map((item) => item.expertise),
 	};
 };
 
 //
 // UPDATE PROFILE
 //
-export const updateProfileService = async (userId, bio) => {
+export const updateProfileService = async (userId, data) => {
 	const profile = await prisma.mentorProfile.findUnique({
 		where: { userId },
 	});
@@ -144,12 +211,41 @@ export const updateProfileService = async (userId, bio) => {
 		throw error;
 	}
 
+	const nextValues = {
+		headline:
+			data.headline !== undefined
+				? data.headline
+				: profile.headline,
+			about:
+				data.about !== undefined
+					? data.about
+					: profile.about,
+			experienceYears:
+			data.experienceYears !== undefined
+				? data.experienceYears
+				: profile.experienceYears,
+	};
+
 	const updated = await prisma.mentorProfile.update({
 		where: { userId },
 		data: {
-			bio,
+			...(data.headline !== undefined && {
+				headline: data.headline,
+			}),
+			...(data.about !== undefined && {
+				about: data.about,
+			}),
+			...(data.experienceYears !== undefined && {
+				experienceYears: data.experienceYears,
+			}),
+			...(data.isAvailable !== undefined && {
+				isAvailable: data.isAvailable,
+			}),
+			profileCompleted: isProfileCompleted(nextValues),
 		},
 	});
+
+	await syncOnboardingCompletion(userId);
 
 	return updated;
 };
@@ -157,38 +253,61 @@ export const updateProfileService = async (userId, bio) => {
 
 export const getAllMentorsService = async () => {
 	const mentors = await prisma.user.findMany({
+		where: {
+			role: "MENTOR",
+			isDeleted: false,
+		},
 		select: {
 			id: true,
 			name: true,
+			avatar: true,
 
 			mentorProfile: {
 				select: {
-					bio: true,
+					headline: true,
+					about: true,
+					experienceYears: true,
+					isAvailable: true,
+					profileCompleted: true,
 
-					expertises: {
+					expertise: {
 						select: {
 							expertise: {
 								select: {
 									id: true,
 									name: true,
+									slug: true,
 								},
 							},
 						},
 					},
-				},
-			},
 
-			mentorPlans: {
-				select: {
-					id: true,
-					plan: true,
-					price: true,
+					mentorPlans: {
+						select: {
+							id: true,
+							duration: true,
+							title: true,
+							description: true,
+							price: true,
+							isActive: true,
+						},
+					},
 				},
 			},
 		},
 	});
 
-	return mentors;
+	return mentors.map((mentor) => ({
+		...mentor,
+		mentorProfile: mentor.mentorProfile
+			? {
+				...mentor.mentorProfile,
+				expertise: mentor.mentorProfile.expertise.map(
+					(item) => item.expertise
+				),
+			}
+			: null,
+	}));
 };
 
 
@@ -199,23 +318,30 @@ export const getMentorByIdService = async (mentorId) => {
 			id: true,
 			name: true,
 			role: true,
+			avatar: true,
 
 			mentorProfile: {
 				select: {
-					bio: true,
-					expertises: {
+					headline: true,
+					about: true,
+					experienceYears: true,
+					isAvailable: true,
+					profileCompleted: true,
+					expertise: {
 						include: {
 							expertise: true,
 						},
 					},
-				},
-			},
-
-			mentorPlans: {
-				select: {
-					id: true,
-					plan: true,
-					price: true,
+					mentorPlans: {
+						select: {
+							id: true,
+							duration: true,
+							title: true,
+							description: true,
+							price: true,
+							isActive: true,
+						},
+					},
 				},
 			},
 		},
@@ -227,22 +353,43 @@ export const getMentorByIdService = async (mentorId) => {
 		throw error;
 	}
 
-	return mentor;
+	return {
+		...mentor,
+		mentorProfile: mentor.mentorProfile
+			? {
+				...mentor.mentorProfile,
+				expertise: mentor.mentorProfile.expertise.map(
+					(item) => item.expertise
+				),
+			}
+			: null,
+	};
 };
 
 export const getMentorPlansService = async (mentorId) => {
-	const plans = await prisma.mentorPlan.findMany({
+	const profile = await prisma.mentorProfile.findUnique({
+		where: { userId: mentorId },
+		select: { id: true },
+	});
+
+	if (!profile) {
+		return [];
+	}
+
+	return prisma.mentorPlan.findMany({
 		where: {
-			mentorId,
+			mentorProfileId: profile.id,
+			isActive: true,
 		},
 		select: {
 			id: true,
-			plan: true,
+			duration: true,
+			title: true,
+			description: true,
 			price: true,
+			isActive: true,
 		},
 	});
-
-	return plans;
 };
 
 export const getMentorExpertiseService = async (mentorId) => {
@@ -251,7 +398,7 @@ export const getMentorExpertiseService = async (mentorId) => {
 			userId: mentorId,
 		},
 		include: {
-			expertises: {
+			expertise: {
 				include: {
 					expertise: true,
 				},
@@ -265,7 +412,7 @@ export const getMentorExpertiseService = async (mentorId) => {
 		throw error;
 	}
 
-	return profile.expertises.map((item) => item.expertise);
+	return profile.expertise.map((item) => item.expertise);
 };
 
 
@@ -278,6 +425,13 @@ export const getMentorExpertiseService = async (mentorId) => {
 export const addExpertiseService = async (userId, name) => {
 	if (!name || !name.trim()) {
 		const error = new Error("Expertise name is required");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	const slug = toSlug(name);
+	if (!slug) {
+		const error = new Error("Expertise name is invalid");
 		error.statusCode = 400;
 		throw error;
 	}
@@ -295,12 +449,12 @@ export const addExpertiseService = async (userId, name) => {
 
 	// 2. find or create expertise
 	let expertise = await prisma.expertise.findUnique({
-		where: { name },
+		where: { slug },
 	});
 
 	if (!expertise) {
 		expertise = await prisma.expertise.create({
-			data: { name },
+			data: { name, slug },
 		});
 	}
 
@@ -328,6 +482,8 @@ export const addExpertiseService = async (userId, name) => {
 			expertise: true,
 		},
 	});
+
+	await syncOnboardingCompletion(userId);
 
 	return link.expertise;
 };
@@ -365,22 +521,40 @@ export const removeExpertiseService = async (userId, expertiseId) => {
 		},
 	});
 
+	await syncOnboardingCompletion(userId);
+
 	return { success: true };
 };
 
 
-export const createPlanService = async (mentorId, plan, price) => {
-	if (!plan || !price) {
-		const error = new Error("Plan and price are required");
+export const createPlanService = async (
+	userId,
+	data
+) => {
+	const { duration, price, title, description, isActive } = data;
+
+	if (!duration || price === undefined || price === null) {
+		const error = new Error("Duration and price are required");
 		error.statusCode = 400;
+		throw error;
+	}
+
+	const profile = await prisma.mentorProfile.findUnique({
+		where: { userId },
+		select: { id: true },
+	});
+
+	if (!profile) {
+		const error = new Error("Mentor profile not found");
+		error.statusCode = 404;
 		throw error;
 	}
 
 	// check duplicate (important for clean error instead of DB crash)
 	const existing = await prisma.mentorPlan.findFirst({
 		where: {
-			mentorId,
-			plan,
+			mentorProfileId: profile.id,
+			duration,
 		},
 	});
 
@@ -392,11 +566,16 @@ export const createPlanService = async (mentorId, plan, price) => {
 
 	const newPlan = await prisma.mentorPlan.create({
 		data: {
-			mentorId,
-			plan,
+			mentorProfileId: profile.id,
+			duration,
+			title,
+			description,
 			price,
+			...(isActive !== undefined && { isActive }),
 		},
 	});
+
+	await syncOnboardingCompletion(userId);
 
 	return newPlan;
 };
@@ -404,13 +583,27 @@ export const createPlanService = async (mentorId, plan, price) => {
 //
 // GET MY PLANS
 //
-export const getMyPlansService = async (mentorId) => {
-	return await prisma.mentorPlan.findMany({
-		where: { mentorId },
+export const getMyPlansService = async (userId) => {
+	const profile = await prisma.mentorProfile.findUnique({
+		where: { userId },
+		select: { id: true },
+	});
+
+	if (!profile) {
+		return [];
+	}
+
+	return prisma.mentorPlan.findMany({
+		where: { mentorProfileId: profile.id },
 		select: {
 			id: true,
-			plan: true,
+			duration: true,
+			title: true,
+			description: true,
 			price: true,
+			isActive: true,
+			createdAt: true,
+			updatedAt: true,
 		},
 	});
 };
@@ -418,12 +611,17 @@ export const getMyPlansService = async (mentorId) => {
 //
 // UPDATE PLAN
 //
-export const updatePlanService = async (mentorId, planId, price) => {
+export const updatePlanService = async (userId, planId, data) => {
 	const existing = await prisma.mentorPlan.findUnique({
 		where: { id: planId },
+		include: {
+			mentorProfile: {
+				select: { userId: true },
+			},
+		},
 	});
 
-	if (!existing || existing.mentorId !== mentorId) {
+	if (!existing || existing.mentorProfile.userId !== userId) {
 		const error = new Error("Plan not found or unauthorized");
 		error.statusCode = 404;
 		throw error;
@@ -432,9 +630,18 @@ export const updatePlanService = async (mentorId, planId, price) => {
 	const updated = await prisma.mentorPlan.update({
 		where: { id: planId },
 		data: {
-			price,
+			...(data.price !== undefined && { price: data.price }),
+			...(data.title !== undefined && { title: data.title }),
+			...(data.description !== undefined && {
+				description: data.description,
+			}),
+			...(data.isActive !== undefined && {
+				isActive: data.isActive,
+			}),
 		},
 	});
+
+	await syncOnboardingCompletion(userId);
 
 	return updated;
 };
@@ -442,12 +649,17 @@ export const updatePlanService = async (mentorId, planId, price) => {
 //
 // DELETE PLAN
 //
-export const deletePlanService = async (mentorId, planId) => {
+export const deletePlanService = async (userId, planId) => {
 	const existing = await prisma.mentorPlan.findUnique({
 		where: { id: planId },
+		include: {
+			mentorProfile: {
+				select: { userId: true },
+			},
+		},
 	});
 
-	if (!existing || existing.mentorId !== mentorId) {
+	if (!existing || existing.mentorProfile.userId !== userId) {
 		const error = new Error("Plan not found or unauthorized");
 		error.statusCode = 404;
 		throw error;
@@ -456,7 +668,7 @@ export const deletePlanService = async (mentorId, planId) => {
 	// OPTIONAL: block deletion if active mentorship exists
 	const active = await prisma.mentorship.findFirst({
 		where: {
-			planId,
+			mentorPlanId: planId,
 			status: "ACTIVE",
 		},
 	});
@@ -470,6 +682,8 @@ export const deletePlanService = async (mentorId, planId) => {
 	await prisma.mentorPlan.delete({
 		where: { id: planId },
 	});
+
+	await syncOnboardingCompletion(userId);
 
 	return { success: true };
 };

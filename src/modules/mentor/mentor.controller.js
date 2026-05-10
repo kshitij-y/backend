@@ -35,9 +35,14 @@ import {
 
 
 export const createProfile = asyncHandler(async (req, res) => {
-  const { bio } = req.body;
+  const { headline, about, experienceYears, isAvailable } = req.body;
 
-  const profile = await createMentorProfileService(req.user.id, bio);
+  const profile = await createMentorProfileService(req.user.id, {
+    headline,
+    about,
+    experienceYears,
+    isAvailable,
+  });
 
   sendResponse(res, 201, profile, "Profile created");
 });
@@ -49,9 +54,14 @@ export const getMyProfile = asyncHandler(async (req, res) => {
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
-  const { bio } = req.body;
+  const { headline, about, experienceYears, isAvailable } = req.body;
 
-  const profile = await updateProfileService(req.user.id, bio);
+  const profile = await updateProfileService(req.user.id, {
+    headline,
+    about,
+    experienceYears,
+    isAvailable,
+  });
 
   sendResponse(res, 200, profile, "Profile updated");
 });
@@ -93,9 +103,15 @@ export const getMentorExpertise = asyncHandler(async (req, res) => {
 //
 
 export const createPlan = asyncHandler(async (req, res) => {
-  const { plan, price } = req.body;
+  const { duration, price, title, description, isActive } = req.body;
 
-  const newPlan = await createPlanService(req.user.id, plan, price);
+  const newPlan = await createPlanService(req.user.id, {
+    duration,
+    price,
+    title,
+    description,
+    isActive,
+  });
 
   sendResponse(res, 201, newPlan, "Plan created");
 });
@@ -108,9 +124,14 @@ export const getMyPlans = asyncHandler(async (req, res) => {
 
 export const updatePlan = asyncHandler(async (req, res) => {
   const { planId } = req.params;
-  const { price } = req.body;
+  const { price, title, description, isActive } = req.body;
 
-  const updated = await updatePlanService(req.user.id, planId, price);
+  const updated = await updatePlanService(req.user.id, planId, {
+    price,
+    title,
+    description,
+    isActive,
+  });
 
   sendResponse(res, 200, updated, "Plan updated");
 });

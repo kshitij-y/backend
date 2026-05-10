@@ -13,6 +13,79 @@ import {
 
 import { OTP_EXPIRY_MINUTES } from "./auth.constants.js";
 
+const isNonEmptyString = (value) =>
+  typeof value === "string" && value.trim().length > 0;
+
+const isProfileCompleted = ({
+  headline,
+  about,
+  experienceYears,
+}) => {
+  return (
+    isNonEmptyString(headline) &&
+    isNonEmptyString(about) &&
+    experienceYears !== null &&
+    experienceYears !== undefined
+  );
+};
+
+const mapMentorProfile = (mentorProfile) => {
+  if (!mentorProfile) {
+    return null;
+  }
+
+  return {
+    ...mentorProfile,
+    expertise: (mentorProfile.expertise || []).map(
+      (item) => item.expertise
+    ),
+  };
+};
+
+const getCalendarConnection = async (userId) => {
+  const connection = await prisma.oAuthConnection.findUnique({
+    where: {
+      userId_provider: {
+        userId,
+        provider: "google",
+      },
+    },
+    select: {
+      connected: true,
+    },
+  });
+
+  return Boolean(connection?.connected);
+};
+
+const buildOnboardingStatus = (mentorProfile, calendarConnected) => {
+  if (!mentorProfile) {
+    return {
+      completed: false,
+      steps: {
+        profile: false,
+        expertise: false,
+        plans: false,
+        googleCalendar: calendarConnected,
+      },
+    };
+  }
+
+  const profileCompleted = isProfileCompleted(mentorProfile);
+  const expertiseCompleted = mentorProfile.expertise.length > 0;
+  const plansCompleted = mentorProfile.mentorPlans.length > 0;
+
+  return {
+    completed: profileCompleted && expertiseCompleted && plansCompleted,
+    steps: {
+      profile: profileCompleted,
+      expertise: expertiseCompleted,
+      plans: plansCompleted,
+      googleCalendar: calendarConnected,
+    },
+  };
+};
+
 export const signupService = async ({
   name,
   email,
@@ -132,6 +205,33 @@ export const verifySignupOTPService = async ({
     },
   });
 
+  const calendarConnected =
+    user.role === "MENTOR"
+      ? await getCalendarConnection(user.id)
+      : false;
+
+  const mentorProfile = user.mentorProfile
+    ? await prisma.mentorProfile.findUnique({
+        where: { userId: user.id },
+        include: {
+          expertise: {
+            include: {
+              expertise: true,
+            },
+          },
+          mentorPlans: true,
+        },
+      })
+    : null;
+
+  const onboardingStatus =
+    user.role === "MENTOR"
+      ? buildOnboardingStatus(
+          mentorProfile,
+          calendarConnected
+        )
+      : null;
+
   await prisma.OTPVerification.deleteMany({
     where: {
       email,
@@ -145,7 +245,12 @@ export const verifySignupOTPService = async ({
 
   return {
     token,
-    user,
+    user: {
+      ...user,
+      mentorProfile: mapMentorProfile(mentorProfile),
+      calendarConnected,
+      onboardingStatus,
+    },
   };
 };
 
@@ -198,6 +303,30 @@ export const loginService = async ({
     role: user.role,
   });
 
+  const calendarConnected =
+    user.role === "MENTOR"
+      ? await getCalendarConnection(user.id)
+      : false;
+
+  const onboardingStatus =
+    user.role === "MENTOR"
+      ? buildOnboardingStatus(
+          user.mentorProfile,
+          calendarConnected
+        )
+      : null;
+
+  if (
+    user.role === "MENTOR" &&
+    onboardingStatus &&
+    user.onboardingCompleted !== onboardingStatus.completed
+  ) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingCompleted: onboardingStatus.completed },
+    });
+  }
+
   const safeUser = {
     id: user.id,
     name: user.name,
@@ -209,7 +338,9 @@ export const loginService = async ({
     onboardingCompleted:
       user.onboardingCompleted,
     createdAt: user.createdAt,
-    mentorProfile: user.mentorProfile,
+    mentorProfile: mapMentorProfile(user.mentorProfile),
+    calendarConnected,
+    onboardingStatus,
   };
 
   return {
@@ -254,7 +385,36 @@ export const meService = async (userId) => {
     throw new Error("User not found");
   }
 
-  return user;
+  const calendarConnected =
+    user.role === "MENTOR"
+      ? await getCalendarConnection(user.id)
+      : false;
+
+  const onboardingStatus =
+    user.role === "MENTOR"
+      ? buildOnboardingStatus(
+          user.mentorProfile,
+          calendarConnected
+        )
+      : null;
+
+  if (
+    user.role === "MENTOR" &&
+    onboardingStatus &&
+    user.onboardingCompleted !== onboardingStatus.completed
+  ) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingCompleted: onboardingStatus.completed },
+    });
+  }
+
+  return {
+    ...user,
+    mentorProfile: mapMentorProfile(user.mentorProfile),
+    calendarConnected,
+    onboardingStatus,
+  };
 };
 
 export const logoutService = async () => {
@@ -348,7 +508,7 @@ export const resetPasswordService =
       },
     });
 
-    await prisma.oTPVerification.deleteMany({
+    await prisma.OTPVerification.deleteMany({
       where: {
         email,
       },

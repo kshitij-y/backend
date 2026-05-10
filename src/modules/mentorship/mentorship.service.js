@@ -21,11 +21,22 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 	}
 
 	// 2. plan must belong to mentor
+	const mentorProfile = await prisma.mentorProfile.findUnique({
+		where: { userId: mentorId },
+		select: { id: true },
+	});
+
+	if (!mentorProfile) {
+		const error = new Error("Mentor profile not found");
+		error.statusCode = 400;
+		throw error;
+	}
+
 	const plan = await prisma.mentorPlan.findUnique({
 		where: { id: planId },
 	});
 
-	if (!plan || plan.mentorId !== mentorId) {
+	if (!plan || plan.mentorProfileId !== mentorProfile.id) {
 		const error = new Error("Invalid plan for this mentor");
 		error.statusCode = 400;
 		throw error;
@@ -34,7 +45,7 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 	// 3. prevent duplicate ACTIVE mentorship
 	const existing = await prisma.mentorship.findFirst({
 		where: {
-			mentorId,
+			mentorProfileId: mentorProfile.id,
 			menteeId,
 			status: "ACTIVE",
 		},
@@ -50,7 +61,7 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 	const startDate = new Date();
 	const endDate = new Date();
 
-	switch (plan.plan) {
+	switch (plan.duration) {
 		case "THREE_MONTH":
 			endDate.setMonth(endDate.getMonth() + 3);
 			break;
@@ -67,17 +78,21 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 	// 5. create mentorship
 	const mentorship = await prisma.mentorship.create({
 		data: {
-			mentorId,
+			mentorProfileId: mentorProfile.id,
 			menteeId,
-			planId,
+			mentorPlanId: planId,
 			startDate,
 			endDate,
 		},
 		include: {
-			mentor: {
-				select: { id: true, name: true },
+			mentorProfile: {
+				include: {
+					user: {
+						select: { id: true, name: true },
+					},
+				},
 			},
-			plan: true,
+			mentorPlan: true,
 		},
 	});
 
@@ -91,18 +106,22 @@ export const getMyMentorshipsService = async (userId) => {
 	return await prisma.mentorship.findMany({
 		where: {
 			OR: [
-				{ mentorId: userId },
+				{ mentorProfile: { userId } },
 				{ menteeId: userId },
 			],
 		},
 		include: {
-			mentor: {
-				select: { id: true, name: true },
+			mentorProfile: {
+				include: {
+					user: {
+						select: { id: true, name: true },
+					},
+				},
 			},
 			mentee: {
 				select: { id: true, name: true },
 			},
-			plan: true,
+			mentorPlan: true,
 		},
 	});
 };
@@ -114,9 +133,13 @@ export const getMentorshipByIdService = async (userId, id) => {
 	const mentorship = await prisma.mentorship.findUnique({
 		where: { id },
 		include: {
-			mentor: true,
+			mentorProfile: {
+				include: {
+					user: true,
+				},
+			},
 			mentee: true,
-			plan: true,
+			mentorPlan: true,
 		},
 	});
 
@@ -128,7 +151,7 @@ export const getMentorshipByIdService = async (userId, id) => {
 
 	// security: only participants can view
 	if (
-		mentorship.mentorId !== userId &&
+		mentorship.mentorProfile.userId !== userId &&
 		mentorship.menteeId !== userId
 	) {
 		const error = new Error("Unauthorized");
@@ -145,6 +168,11 @@ export const getMentorshipByIdService = async (userId, id) => {
 export const updateMentorshipStatusService = async (userId, id, status) => {
 	const mentorship = await prisma.mentorship.findUnique({
 		where: { id },
+		include: {
+			mentorProfile: {
+				select: { userId: true },
+			},
+		},
 	});
 
 	if (!mentorship) {
@@ -154,7 +182,7 @@ export const updateMentorshipStatusService = async (userId, id, status) => {
 	}
 
 	// only mentor can update
-	if (mentorship.mentorId !== userId) {
+	if (mentorship.mentorProfile.userId !== userId) {
 		const error = new Error("Only mentor can update status");
 		error.statusCode = 403;
 		throw error;
@@ -180,7 +208,11 @@ export const attachStreamChannelToMentorshipService = async (
     },
 
     include: {
-      mentor: true,
+			mentorProfile: {
+				include: {
+					user: true,
+				},
+			},
       mentee: true,
     },
   });
@@ -203,8 +235,8 @@ export const attachStreamChannelToMentorshipService = async (
   //
   await streamClient.upsertUsers([
     {
-      id: mentorship.mentor.id,
-      name: mentorship.mentor.name,
+			id: mentorship.mentorProfile.user.id,
+			name: mentorship.mentorProfile.user.name,
     },
 
     {

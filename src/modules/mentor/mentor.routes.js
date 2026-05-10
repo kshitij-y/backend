@@ -21,24 +21,21 @@ const router = express.Router();
 //
 router.get("/", getAllMentors);
 
-router.get("/onboarding-status", authMiddleware, roleMiddleware("MENTOR"), getOnboardingStatus);
-
-router.get("/:mentorId/plans", getMentorPlans);
-router.get("/:mentorId/expertise", getMentorExpertise);
-router.get("/:mentorId", getMentorById);
-
 //
 // PROTECTED (MENTOR ONLY)
 //
-
-
-
-
 router.post("/profile", authMiddleware, roleMiddleware("MENTOR"), createProfile);
 
 router.get("/profile/me", authMiddleware, roleMiddleware("MENTOR"), getMyProfile);
 
 router.put("/profile", authMiddleware, roleMiddleware("MENTOR"), updateProfile);
+
+router.get(
+    "/onboarding-status",
+    authMiddleware,
+    roleMiddleware("MENTOR"),
+    getOnboardingStatus
+);
 
 //
 // EXPERTISE
@@ -57,5 +54,9 @@ router.get( "/plans/me", authMiddleware, roleMiddleware("MENTOR"), getMyPlans);
 router.put("/plans/:planId", authMiddleware, roleMiddleware("MENTOR"), updatePlan);
 
 router.delete( "/plans/:planId", authMiddleware, roleMiddleware("MENTOR"), deletePlan);
+
+router.get("/:mentorId/plans", getMentorPlans);
+router.get("/:mentorId/expertise", getMentorExpertise);
+router.get("/:mentorId", getMentorById);
 
 export default router;
