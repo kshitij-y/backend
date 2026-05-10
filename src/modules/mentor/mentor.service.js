@@ -2,6 +2,72 @@ import prisma from "../../config/db.js";
 
 
 
+/**
+ * onboarding route for mentor
+ */
+export const getOnboardingStatusService =
+  async (userId) => {
+    const mentorProfile =
+      await prisma.mentorProfile.findUnique({
+        where: {
+          userId,
+        },
+
+        include: {
+          expertise: true,
+          mentorPlans: true,
+        },
+      });
+
+    if (!mentorProfile) {
+      return {
+        completed: false,
+
+        steps: {
+          profile: false,
+          expertise: false,
+          plans: false,
+          googleCalendar: false,
+        },
+      };
+    }
+
+    const profileCompleted =
+      !!mentorProfile.headline &&
+      !!mentorProfile.about &&
+      mentorProfile.experienceYears !==
+        null;
+
+    const expertiseCompleted =
+      mentorProfile.expertise.length > 0;
+
+    const plansCompleted =
+      mentorProfile.mentorPlans.length > 0;
+
+    const googleCalendarCompleted =
+      mentorProfile.googleCalendarConnected;
+
+    const completed =
+      profileCompleted &&
+      expertiseCompleted &&
+      plansCompleted &&
+      googleCalendarCompleted;
+
+    return {
+      completed,
+
+      steps: {
+        profile: profileCompleted,
+        expertise: expertiseCompleted,
+        plans: plansCompleted,
+        googleCalendar:
+          googleCalendarCompleted,
+      },
+    };
+  };
+
+//////////////////////////////////////////////////////////////////////////
+
 //
 // CREATE PROFILE
 //

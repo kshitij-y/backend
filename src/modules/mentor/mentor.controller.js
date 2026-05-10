@@ -1,5 +1,5 @@
-import asyncHandler from "../../utils/asyncHandler.js";
-import { sendResponse } from "../../utils/response.js";
+import asyncHandler from "../../shared/utils/asyncHandler.js";
+import { sendResponse } from "../../shared/utils/response.js";
 
 import {
   // PROFILE
@@ -22,6 +22,8 @@ import {
   // PUBLIC
   getAllMentorsService,
   getMentorByIdService,
+
+  getOnboardingStatusService
 } from "./mentor.service.js";
 
 //
@@ -29,6 +31,8 @@ import {
 // PROFILE
 // --------------------
 //
+
+
 
 export const createProfile = asyncHandler(async (req, res) => {
   const { bio } = req.body;
@@ -146,3 +150,22 @@ export const getMentorById = asyncHandler(async (req, res) => {
 
   sendResponse(res, 200, mentor);
 });
+
+export const getOnboardingStatus =
+  async (req, res, next) => {
+    try {
+      const data =
+        await getOnboardingStatusService(
+          req.user.id
+        );
+
+      sendResponse(
+        res,
+        200,
+        data,
+        "Onboarding status fetched successfully"
+      );
+    } catch (error) {
+      next(error);
+    }
+  };

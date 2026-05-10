@@ -7,10 +7,12 @@ import {
     createPlan, getMyPlans, updatePlan, deletePlan,
 
     getAllMentors, getMentorById, getMentorPlans,
+
+    getOnboardingStatus,
 } from "./mentor.controller.js";
 
-import authMiddleware from "../../middleware/auth.middleware.js";
-import roleMiddleware from "../../middleware/role.middleware.js";
+import authMiddleware from "../../shared/middleware/auth.middleware.js";
+import roleMiddleware from "../../shared/middleware/role.middleware.js";
 
 const router = express.Router();
 
@@ -18,6 +20,9 @@ const router = express.Router();
 // PUBLIC
 //
 router.get("/", getAllMentors);
+
+router.get("/onboarding-status", authMiddleware, roleMiddleware("MENTOR"), getOnboardingStatus);
+
 router.get("/:mentorId/plans", getMentorPlans);
 router.get("/:mentorId/expertise", getMentorExpertise);
 router.get("/:mentorId", getMentorById);
@@ -25,6 +30,10 @@ router.get("/:mentorId", getMentorById);
 //
 // PROTECTED (MENTOR ONLY)
 //
+
+
+
+
 router.post("/profile", authMiddleware, roleMiddleware("MENTOR"), createProfile);
 
 router.get("/profile/me", authMiddleware, roleMiddleware("MENTOR"), getMyProfile);
