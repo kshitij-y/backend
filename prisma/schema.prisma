@@ -357,6 +357,8 @@ model Mentorship {
   googleMeetLink String?
   googleEventId  String?
 
+  streamChannelId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

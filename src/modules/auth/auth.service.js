@@ -12,6 +12,7 @@ import {
 } from "./auth.utils.js";
 
 import { OTP_EXPIRY_MINUTES } from "./auth.constants.js";
+import { ensureStreamUserService } from "../chat/chat.service.js";
 
 const isNonEmptyString = (value) =>
   typeof value === "string" && value.trim().length > 0;
@@ -210,6 +211,8 @@ export const verifySignupOTPService = async ({
       ? await getCalendarConnection(user.id)
       : false;
 
+  await ensureStreamUserService(user);
+
   const mentorProfile = user.mentorProfile
     ? await prisma.mentorProfile.findUnique({
         where: { userId: user.id },
@@ -302,6 +305,8 @@ export const loginService = async ({
     id: user.id,
     role: user.role,
   });
+
+  await ensureStreamUserService(user);
 
   const calendarConnected =
     user.role === "MENTOR"

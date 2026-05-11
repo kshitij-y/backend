@@ -88,7 +88,7 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 			mentorProfile: {
 				include: {
 					user: {
-						select: { id: true, name: true },
+						select: { id: true, name: true, avatar: true },
 					},
 				},
 			},
@@ -114,12 +114,12 @@ export const getMyMentorshipsService = async (userId) => {
 			mentorProfile: {
 				include: {
 					user: {
-						select: { id: true, name: true },
+						select: { id: true, name: true, avatar: true },
 					},
 				},
 			},
 			mentee: {
-				select: { id: true, name: true },
+				select: { id: true, name: true, avatar: true },
 			},
 			mentorPlan: true,
 		},
@@ -202,20 +202,21 @@ export const attachStreamChannelToMentorshipService = async (
   //
   // 1. fetch mentorship
   //
-  const mentorship = await prisma.mentorship.findUnique({
-    where: {
-      id: mentorshipId,
-    },
+	const mentorship = await prisma.mentorship.findUnique({
+		where: {
+			id: mentorshipId,
+		},
 
-    include: {
+		include: {
 			mentorProfile: {
 				include: {
 					user: true,
 				},
 			},
-      mentee: true,
-    },
-  });
+			mentee: true,
+			mentorPlan: true,
+		},
+	});
 
   if (!mentorship) {
     const error = new Error("Mentorship not found");
@@ -233,22 +234,24 @@ export const attachStreamChannelToMentorshipService = async (
   //
   // 3. sync users to stream
   //
-  await streamClient.upsertUsers([
-    {
+	await streamClient.upsertUsers([
+		{
 			id: mentorship.mentorProfile.user.id,
 			name: mentorship.mentorProfile.user.name,
-    },
+			image: mentorship.mentorProfile.user.avatar || undefined,
+		},
 
-    {
-      id: mentorship.mentee.id,
-      name: mentorship.mentee.name,
-    },
-  ]);
+		{
+			id: mentorship.mentee.id,
+			name: mentorship.mentee.name,
+			image: mentorship.mentee.avatar || undefined,
+		},
+	]);
 
   //
   // 4. generate channel id
   //
-  const streamChannelId = `mentorship_${mentorship.id}`;
+	const streamChannelId = `mentorship-${mentorship.id}`;
 
   //
   // 5. create channel
@@ -257,19 +260,33 @@ export const attachStreamChannelToMentorshipService = async (
     "messaging",
     streamChannelId,
     {
-      created_by_id: mentorship.mentee.id,
+			created_by_id: mentorship.mentee.id,
 
-      members: [
-        mentorship.mentor.id,
-        mentorship.mentee.id,
-      ],
+			members: [
+				mentorship.mentorProfile.user.id,
+				mentorship.mentee.id,
+			],
     }
   );
 
   //
   // 6. create/get channel
   //
-  await channel.create();
+	try {
+		await channel.create();
+	} catch (error) {
+		const message =
+			typeof error?.message === "string"
+				? error.message
+				: "";
+		const isAlreadyExists =
+			error?.code === 16 ||
+			message.toLowerCase().includes("already exists");
+
+		if (!isAlreadyExists) {
+			throw error;
+		}
+	}
 
   //
   // 7. save stream channel id
@@ -283,23 +300,29 @@ export const attachStreamChannelToMentorshipService = async (
       streamChannelId,
     },
 
-    include: {
-      mentor: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+		include: {
+			mentorProfile: {
+				include: {
+					user: {
+						select: {
+							id: true,
+							name: true,
+							avatar: true,
+						},
+					},
+				},
+			},
 
-      mentee: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+			mentee: {
+				select: {
+					id: true,
+					name: true,
+					avatar: true,
+				},
+			},
 
-      plan: true,
-    },
+			mentorPlan: true,
+		},
   });
 
   return updatedMentorship;

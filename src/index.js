@@ -11,6 +11,8 @@ import userRoutes from "./modules/user/user.routes.js";
 import mentorRoutes from "./modules/mentor/mentor.routes.js";
 import mentorshipRoutes from "./modules/mentorship/mentorship.routes.js";
 import calendarRoutes from "./modules/calendar/calendar.routes.js";
+import chatRoutes from "./modules/chat/chat.routes.js";
+import aiRoutes from "./modules/ai/ai.routes.js";
 
 // import streamRoutes from "./modules/stream/stream.routes.js";
 
@@ -60,6 +62,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/mentors", mentorRoutes);
 app.use("/api/mentorships", mentorshipRoutes);
 app.use("/api/calendar", calendarRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/ai", aiRoutes);
 
 // app.use("/api/stream", streamRoutes);
 

@@ -1,6 +1,5 @@
 import asyncHandler from "../../shared/utils/asyncHandler.js";
 import { sendResponse } from "../../shared/utils/response.js";
-import streamClient from "../../config/stream.js";
 import {
   createMentorshipService,
   getMyMentorshipsService,

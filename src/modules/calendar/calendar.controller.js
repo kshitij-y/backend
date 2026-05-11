@@ -8,11 +8,20 @@ import {
   handleGoogleCallbackService,
 } from "./calendar.service.js";
 
-const getRedirectUrl = () => {
-  return (
+const getRedirectUrl = (user) => {
+  const baseUrl =
     process.env.CALENDAR_CONNECT_REDIRECT_URL ||
-    process.env.CLIENT_URL
-  );
+    process.env.CLIENT_URL;
+
+  const rolePath =
+    user?.role === "MENTOR"
+      ? "/mentor/dashboard"
+      : "/mentee/dashboard";
+
+  const url = new URL(baseUrl);
+  url.pathname = rolePath;
+
+  return url.toString();
 };
 
 const buildRedirectUrl = (baseUrl, params) => {
@@ -45,7 +54,7 @@ export const handleGoogleCallback = asyncHandler(
     const state = Array.isArray(req.query.state)
       ? req.query.state[0]
       : req.query.state;
-    const redirectUrl = getRedirectUrl();
+    const redirectUrl = getRedirectUrl(req.user);
 
     try {
       await handleGoogleCallbackService(req.user, code, state);
