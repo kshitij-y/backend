@@ -112,9 +112,23 @@ export const getMyMentorshipsService = async (userId) => {
 		},
 		include: {
 			mentorProfile: {
-				include: {
+				select: {
+					headline: true,
+					experienceYears: true,
+					isAvailable: true,
 					user: {
 						select: { id: true, name: true, avatar: true },
+					},
+					expertise: {
+						select: {
+							expertise: {
+								select: {
+									id: true,
+									name: true,
+									slug: true,
+								},
+							},
+						},
 					},
 				},
 			},
