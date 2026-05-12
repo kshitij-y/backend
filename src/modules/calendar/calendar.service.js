@@ -1,5 +1,10 @@
+import crypto from "crypto";
+import { google } from "googleapis";
+
 import {
   GOOGLE_CALENDAR_SCOPES,
+  buildOAuthCredentials,
+  createGoogleOAuthClient,
   createOAuthState,
   exchangeCodeForTokens,
   generateGoogleAuthUrl,
@@ -154,4 +159,121 @@ export const refreshAccessTokenIfNeeded = async (connection) => {
   );
 
   return updated;
+};
+
+const getMeetLink = (event) => {
+  if (!event) {
+    return null;
+  }
+
+  if (event.hangoutLink) {
+    return event.hangoutLink;
+  }
+
+  const entryPoints = event.conferenceData?.entryPoints || [];
+  const videoEntry = entryPoints.find(
+    (entry) => entry.entryPointType === "video"
+  );
+
+  return videoEntry?.uri || null;
+};
+
+const buildEventPayload = ({
+  summary,
+  description,
+  start,
+  end,
+  attendees,
+}) => {
+  const payload = {
+    summary,
+    description,
+    start: {
+      dateTime: start.toISOString(),
+    },
+    end: {
+      dateTime: end.toISOString(),
+    },
+  };
+
+  if (attendees?.length) {
+    payload.attendees = attendees.map((email) => ({ email }));
+  }
+
+  return payload;
+};
+
+export const createCalendarEventService = async (
+  userId,
+  {
+    summary,
+    description,
+    start,
+    end,
+    attendees,
+    existingEventId,
+  }
+) => {
+  const connection = await getGoogleConnection(userId);
+
+  if (!connection || !connection.connected) {
+    return null;
+  }
+
+  const refreshed = await refreshAccessTokenIfNeeded(connection);
+
+  const client = createGoogleOAuthClient();
+  client.setCredentials(buildOAuthCredentials(refreshed));
+
+  const calendar = google.calendar({
+    version: "v3",
+    auth: client,
+  });
+
+  const requestBody = buildEventPayload({
+    summary,
+    description,
+    start,
+    end,
+    attendees,
+  });
+
+  if (existingEventId) {
+    const { data } = await calendar.events.update({
+      calendarId: "primary",
+      eventId: existingEventId,
+      requestBody,
+    });
+
+    return {
+      eventId: data?.id || existingEventId,
+      meetLink: getMeetLink(data),
+    };
+  }
+
+  const requestId =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : crypto.randomBytes(16).toString("hex");
+
+  const { data } = await calendar.events.insert({
+    calendarId: "primary",
+    conferenceDataVersion: 1,
+    requestBody: {
+      ...requestBody,
+      conferenceData: {
+        createRequest: {
+          requestId,
+          conferenceSolutionKey: {
+            type: "hangoutsMeet",
+          },
+        },
+      },
+    },
+  });
+
+  return {
+    eventId: data?.id || null,
+    meetLink: getMeetLink(data),
+  };
 };

@@ -5,6 +5,7 @@ import {
   getMyMentorshipsService,
   getMentorshipByIdService,
   updateMentorshipStatusService,
+  scheduleMentorshipService,
   attachStreamChannelToMentorshipService
 } from "./mentorship.service.js";
 
@@ -88,4 +89,21 @@ export const updateMentorshipStatus = asyncHandler(async (req, res) => {
   );
 
   sendResponse(res, 200, updated, "Status updated");
+});
+
+//
+// SCHEDULE SESSION
+//
+export const scheduleMentorship = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { startDate, endDate, durationMinutes, notes } = req.body;
+
+  const updated = await scheduleMentorshipService(req.user.id, id, {
+    startDate,
+    endDate,
+    durationMinutes,
+    notes,
+  });
+
+  sendResponse(res, 200, updated, "Session scheduled");
 });

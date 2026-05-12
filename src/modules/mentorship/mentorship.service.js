@@ -1,5 +1,8 @@
 import prisma from "../../config/db.js";
 import streamClient from "../../config/stream.js";
+import {
+	createCalendarEventService,
+} from "../calendar/calendar.service.js";
 //
 // CREATE MENTORSHIP
 //
@@ -205,6 +208,165 @@ export const updateMentorshipStatusService = async (userId, id, status) => {
 	const updated = await prisma.mentorship.update({
 		where: { id },
 		data: { status },
+	});
+
+	return updated;
+};
+
+const resolveScheduleTimes = ({ startDate, endDate, durationMinutes }) => {
+	if (!startDate) {
+		const error = new Error("Start date is required");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	const start = new Date(startDate);
+	if (Number.isNaN(start.getTime())) {
+		const error = new Error("Invalid start date");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	let end = null;
+	if (endDate) {
+		end = new Date(endDate);
+	} else if (durationMinutes) {
+		end = new Date(
+			start.getTime() + Number(durationMinutes) * 60 * 1000
+		);
+	}
+
+	if (!end || Number.isNaN(end.getTime())) {
+		const error = new Error("Invalid end date");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	if (end <= start) {
+		const error = new Error("End date must be after start date");
+		error.statusCode = 400;
+		throw error;
+	}
+
+	return { start, end };
+};
+
+const buildSessionDescription = ({ planTitle, menteeName, notes }) => {
+	const parts = [
+		`Mentorship session with ${menteeName}.`,
+		planTitle ? `Plan: ${planTitle}.` : null,
+		notes ? `Notes: ${notes}` : null,
+	].filter(Boolean);
+
+	return parts.join("\n");
+};
+
+export const scheduleMentorshipService = async (
+	userId,
+	mentorshipId,
+	{ startDate, endDate, durationMinutes, notes }
+) => {
+	const mentorship = await prisma.mentorship.findUnique({
+		where: { id: mentorshipId },
+		include: {
+			mentorProfile: {
+				select: {
+					userId: true,
+					user: {
+						select: { id: true, name: true },
+					},
+				},
+			},
+			mentee: {
+				select: { id: true, name: true, email: true, avatar: true },
+			},
+			mentorPlan: true,
+		},
+	});
+
+	if (!mentorship) {
+		const error = new Error("Mentorship not found");
+		error.statusCode = 404;
+		throw error;
+	}
+
+	if (mentorship.mentorProfile.userId !== userId) {
+		const error = new Error("Only mentors can schedule sessions");
+		error.statusCode = 403;
+		throw error;
+	}
+
+	const { start, end } = resolveScheduleTimes({
+		startDate,
+		endDate,
+		durationMinutes,
+	});
+
+	const description = buildSessionDescription({
+		planTitle: mentorship.mentorPlan?.title,
+		menteeName: mentorship.mentee?.name || "mentee",
+		notes,
+	});
+
+	let calendarEvent = null;
+	try {
+		calendarEvent = await createCalendarEventService(userId, {
+			summary: `Mentorship session with ${mentorship.mentee?.name || "mentee"}`,
+			description,
+			start,
+			end,
+			attendees: mentorship.mentee?.email
+				? [mentorship.mentee.email]
+				: [],
+			existingEventId: mentorship.googleEventId,
+		});
+	} catch (error) {
+		const nextError = new Error("Failed to create calendar event");
+		nextError.statusCode = error.statusCode || 500;
+		throw nextError;
+	}
+
+	const updated = await prisma.mentorship.update({
+		where: { id: mentorshipId },
+		data: {
+			startDate: start,
+			endDate: end,
+			status:
+				mentorship.status === "PENDING" ? "ACTIVE" : mentorship.status,
+			...(calendarEvent?.eventId && {
+				googleEventId: calendarEvent.eventId,
+			}),
+			...(calendarEvent?.meetLink && {
+				googleMeetLink: calendarEvent.meetLink,
+			}),
+		},
+		include: {
+			mentorProfile: {
+				select: {
+					headline: true,
+					experienceYears: true,
+					isAvailable: true,
+					user: {
+						select: { id: true, name: true, avatar: true },
+					},
+					expertise: {
+						select: {
+							expertise: {
+								select: {
+									id: true,
+									name: true,
+									slug: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			mentee: {
+				select: { id: true, name: true, avatar: true },
+			},
+			mentorPlan: true,
+		},
 	});
 
 	return updated;
