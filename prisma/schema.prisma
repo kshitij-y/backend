@@ -1,202 +1,3 @@
-// generator client {
-//   provider = "prisma-client-js"
-// }
-
-// // datasource db {
-// //   provider = "postgresql"
-// //   url      = env("DATABASE_URL")
-// //   // directUrl = env("DIRECT_URL")
-// // }
-
-// datasource db {
-//   provider  = "postgresql"
-//   url       = env("DATABASE_URL")
-//   directUrl = env("DIRECT_URL")
-// }
-
-// // ENUMS
-
-// enum Role {
-//   MENTOR
-//   MENTEE
-// }
-
-// enum MentorshipPlan {
-//   THREE_MONTH
-//   SIX_MONTH
-//   TWELVE_MONTH
-// }
-
-// enum MentorshipStatus {
-//   ACTIVE
-//   COMPLETED
-//   CANCELLED
-// }
-
-// enum SessionStatus {
-//   SCHEDULED
-//   COMPLETED
-//   CANCELLED
-// }
-
-// // MODELS
-
-// model User {
-//   id        String   @id @default(uuid())
-//   name      String
-//   email     String   @unique
-//   password  String
-//   role      Role
-
-//   mentorProfile MentorProfile?
-
-//   mentorMentorships Mentorship[] @relation("MentorMentorships")
-//   menteeMentorships Mentorship[] @relation("MenteeMentorships")
-
-//   mentorSessions Session[] @relation("MentorSessions")
-//   menteeSessions Session[] @relation("MenteeSessions")
-//   mentorPlans MentorPlan[]
-
-//   blogs Blog[]
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-// model MentorProfile {
-//   id     String @id @default(uuid())
-//   userId String @unique
-
-//   bio String?
-
-//   user User @relation(fields: [userId], references: [id])
-
-//   expertises MentorExpertise[]
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-// // EXPERTISE (NORMALIZED)
-
-// model Expertise {
-//   id   String @id @default(uuid())
-//   name String @unique
-
-//   mentorLinks MentorExpertise[]
-// }
-
-// model MentorExpertise {
-//   id                String @id @default(uuid())
-//   mentorProfileId   String
-//   expertiseId       String
-
-//   mentorProfile MentorProfile @relation(fields: [mentorProfileId], references: [id])
-//   expertise     Expertise     @relation(fields: [expertiseId], references: [id])
-
-//   @@unique([mentorProfileId, expertiseId])
-// }
-
-// // MENTOR PLAN
-
-// model MentorPlan {
-//   id        String @id @default(uuid())
-//   mentorId  String
-
-//   mentor User @relation(fields: [mentorId], references: [id])
-
-//   plan  MentorshipPlan
-//   price Int
-
-//   mentorships Mentorship[]
-
-//   createdAt DateTime @default(now())
-
-//   @@index([mentorId])
-//   @@unique([mentorId, plan])
-// }
-
-// // MENTORSHIP (CORE)
-
-// model Mentorship {
-//   id String @id @default(uuid())
-
-//   mentorId String
-//   menteeId String
-//   planId   String
-
-//   streamChannelId String? @unique
-
-//   mentor User @relation("MentorMentorships", fields: [mentorId], references: [id])
-//   mentee User @relation("MenteeMentorships", fields: [menteeId], references: [id])
-
-//   plan MentorPlan @relation(fields: [planId], references: [id])
-
-//   startDate DateTime
-//   endDate   DateTime
-
-//   status MentorshipStatus @default(ACTIVE)
-
-//   sessions Session[]
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   @@index([mentorId])
-//   @@index([menteeId])
-//   @@index([planId])
-//   @@index([status])
-//   @@index([mentorId, status])
-// }
-
-// model Session {
-//   id String @id @default(uuid())
-
-//   mentorshipId String
-
-//   mentorId String
-//   menteeId String
-
-//   title       String?
-//   description String?
-
-//   startTime DateTime
-//   endTime   DateTime
-
-//   streamCallId String @unique
-
-//   status SessionStatus @default(SCHEDULED)
-
-//   mentorship Mentorship @relation(fields: [mentorshipId], references: [id])
-
-//   mentor User @relation("MentorSessions", fields: [mentorId], references: [id])
-//   mentee User @relation("MenteeSessions", fields: [menteeId], references: [id])
-
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-
-//   @@index([mentorId])
-//   @@index([menteeId])
-//   @@index([mentorshipId])
-//   @@index([status])
-// }
-
-// // BLOG (OPTIONAL)
-
-// model Blog {
-//   id       String @id @default(uuid())
-//   authorId String
-
-//   title   String
-//   content String
-
-//   author User @relation(fields: [authorId], references: [id])
-
-//   createdAt DateTime @default(now())
-
-//   @@index([authorId])
-// }
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -225,10 +26,16 @@ enum MentorPlanDuration {
 }
 
 enum MentorshipStatus {
-  PENDING
   ACTIVE
   COMPLETED
   CANCELLED
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
 }
 
 model User {
@@ -238,11 +45,11 @@ model User {
   passwordHash String
   role         UserRole
 
-  avatar String?
-  bio    String?
-  interests String?
-  goals String?
-  learningFocus String?
+  avatar         String?
+  bio            String?
+  interests      String?
+  goals          String?
+  learningFocus  String?
 
   isVerified          Boolean   @default(false)
   onboardingCompleted Boolean   @default(false)
@@ -255,7 +62,8 @@ model User {
   mentorProfile MentorProfile?
 
   menteeMentorships Mentorship[] @relation("MenteeMentorships")
-  oAuthConnections  OAuthConnection[]
+
+  oAuthConnections OAuthConnection[]
 
   @@index([email])
   @@index([role])
@@ -312,9 +120,11 @@ model MentorExpertise {
   createdAt DateTime @default(now())
 
   mentorProfile MentorProfile @relation(fields: [mentorProfileId], references: [id], onDelete: Cascade)
-  expertise     Expertise     @relation(fields: [expertiseId], references: [id], onDelete: Cascade)
+
+  expertise Expertise @relation(fields: [expertiseId], references: [id], onDelete: Cascade)
 
   @@unique([mentorProfileId, expertiseId])
+
   @@index([mentorProfileId])
   @@index([expertiseId])
 }
@@ -352,13 +162,10 @@ model Mentorship {
 
   mentorPlanId String
 
-  status MentorshipStatus @default(PENDING)
+  status MentorshipStatus @default(ACTIVE)
 
   startDate DateTime?
   endDate   DateTime?
-
-  googleMeetLink String?
-  googleEventId  String?
 
   streamChannelId String? @unique
 
@@ -371,9 +178,34 @@ model Mentorship {
 
   mentorPlan MentorPlan @relation(fields: [mentorPlanId], references: [id], onDelete: Cascade)
 
+  sessions Session[]
+
   @@index([mentorProfileId])
   @@index([menteeId])
   @@index([status])
+}
+
+model Session {
+  id String @id @default(uuid())
+
+  mentorshipId String
+
+  startTime DateTime
+  endTime   DateTime
+
+  googleMeetLink String?
+  googleEventId  String?
+
+  status SessionStatus @default(SCHEDULED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mentorship Mentorship @relation(fields: [mentorshipId], references: [id], onDelete: Cascade)
+
+  @@index([mentorshipId])
+  @@index([status])
+  @@index([startTime])
 }
 
 model OTPVerification {
@@ -397,14 +229,20 @@ model OTPVerification {
 }
 
 model OAuthConnection {
-  id           String   @id @default(cuid())
-  userId       String
-  provider     String
+  id String @id @default(cuid())
+
+  userId String
+
+  provider String
+
   accessToken  String?
   refreshToken String?
-  expiryDate   DateTime?
-  scopes       String[]
-  connected    Boolean  @default(true)
+
+  expiryDate DateTime?
+
+  scopes String[]
+
+  connected Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -412,7 +250,7 @@ model OAuthConnection {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, provider])
+
   @@index([provider])
   @@index([connected])
 }
-

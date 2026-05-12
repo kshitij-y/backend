@@ -1,20 +1,15 @@
 import prisma from "../../config/db.js";
 import streamClient from "../../config/stream.js";
-
-const buildStreamUser = (user) => ({
-  id: user.id,
-  name: user.name,
-  image: user.avatar || undefined,
-});
-
-const ensureStreamUsers = async (users) => {
-  await streamClient.upsertUsers(
-    users.map(buildStreamUser)
-  );
-};
+import { attachStreamChannelToMentorshipService } from "../mentorship/mentorship.service.js";
 
 export const ensureStreamUserService = async (user) => {
-  await ensureStreamUsers([user]);
+  await streamClient.upsertUsers([
+    {
+      id: user.id,
+      name: user.name,
+      image: user.avatar || undefined,
+    },
+  ]);
 };
 
 export const getChatTokenService = async (user) => {
@@ -23,19 +18,13 @@ export const getChatTokenService = async (user) => {
   return streamClient.createToken(user.id);
 };
 
-export const createMentorshipChannelService = async (
-  userId,
-  mentorshipId
-) => {
+export const createMentorshipChannelService = async (userId, mentorshipId) => {
+  // Verify the caller is a participant before delegating
   const mentorship = await prisma.mentorship.findUnique({
     where: { id: mentorshipId },
     include: {
-      mentorProfile: {
-        include: {
-          user: true,
-        },
-      },
-      mentee: true,
+      mentorProfile: { select: { userId: true } },
+      mentee: { select: { id: true } },
     },
   });
 
@@ -45,55 +34,12 @@ export const createMentorshipChannelService = async (
     throw error;
   }
 
-  const mentorUser = mentorship.mentorProfile.user;
-  const menteeUser = mentorship.mentee;
-
-  if (mentorUser.id !== userId && menteeUser.id !== userId) {
+  if (mentorship.mentorProfile.userId !== userId && mentorship.mentee.id !== userId) {
     const error = new Error("Unauthorized");
     error.statusCode = 403;
     throw error;
   }
 
-  await ensureStreamUsers([mentorUser, menteeUser]);
-
-  const channelId =
-    mentorship.streamChannelId ||
-    `mentorship-${mentorship.id}`;
-
-  const channel = streamClient.channel(
-    "messaging",
-    channelId,
-    {
-      created_by_id: menteeUser.id,
-      members: [mentorUser.id, menteeUser.id],
-    }
-  );
-
-  try {
-    await channel.create();
-  } catch (error) {
-    const message =
-      typeof error?.message === "string"
-        ? error.message
-        : "";
-    const isAlreadyExists =
-      error?.code === 16 ||
-      message.toLowerCase().includes("already exists");
-
-    if (!isAlreadyExists) {
-      throw error;
-    }
-  }
-
-  if (!mentorship.streamChannelId) {
-    await prisma.mentorship.update({
-      where: { id: mentorship.id },
-      data: { streamChannelId: channelId },
-    });
-  }
-
-  return {
-    channelId,
-    mentorshipId: mentorship.id,
-  };
+  const updated = await attachStreamChannelToMentorshipService(mentorshipId);
+  return { channelId: updated.streamChannelId, mentorshipId: updated.id };
 };

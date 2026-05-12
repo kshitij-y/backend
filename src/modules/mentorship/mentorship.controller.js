@@ -5,7 +5,6 @@ import {
   getMyMentorshipsService,
   getMentorshipByIdService,
   updateMentorshipStatusService,
-  scheduleMentorshipService,
   attachStreamChannelToMentorshipService
 } from "./mentorship.service.js";
 
@@ -92,18 +91,8 @@ export const updateMentorshipStatus = asyncHandler(async (req, res) => {
 });
 
 //
-// SCHEDULE SESSION
+// SCHEDULE SESSION (deprecated)
 //
 export const scheduleMentorship = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { startDate, endDate, durationMinutes, notes } = req.body;
-
-  const updated = await scheduleMentorshipService(req.user.id, id, {
-    startDate,
-    endDate,
-    durationMinutes,
-    notes,
-  });
-
-  sendResponse(res, 200, updated, "Session scheduled");
+  sendResponse(res, 410, null, "This endpoint is deprecated. Use /api/sessions instead.");
 });
