@@ -23,7 +23,9 @@ import {
   getAllMentorsService,
   getMentorByIdService,
 
-  getOnboardingStatusService
+  getOnboardingStatusService,
+
+  getMentorMenteesService
 } from "./mentor.service.js";
 
 //
@@ -32,6 +34,28 @@ import {
 // --------------------
 //
 
+export const getMentorMentees = async (req, res, next) => {
+  try {
+    const mentees =
+      await getMentorMenteesService(
+        req.user.id
+      );
+
+      console.log(
+        "MENTEES:",
+        mentees
+      );
+
+    return sendResponse(
+      res,
+      200,
+      mentees,
+      "Mentor mentees fetched successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 
 
 export const createProfile = asyncHandler(async (req, res) => {

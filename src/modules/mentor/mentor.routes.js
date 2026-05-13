@@ -9,6 +9,8 @@ import {
     getAllMentors, getMentorById, getMentorPlans,
 
     getOnboardingStatus,
+
+    getMentorMentees
 } from "./mentor.controller.js";
 
 import authMiddleware from "../../shared/middleware/auth.middleware.js";
@@ -20,6 +22,11 @@ const router = express.Router();
 // PUBLIC
 //
 router.get("/", getAllMentors);
+router.get(
+  "/mentees",
+  authMiddleware,
+  getMentorMentees
+);
 
 //
 // PROTECTED (MENTOR ONLY)
@@ -58,5 +65,12 @@ router.delete( "/plans/:planId", authMiddleware, roleMiddleware("MENTOR"), delet
 router.get("/:mentorId/plans", getMentorPlans);
 router.get("/:mentorId/expertise", getMentorExpertise);
 router.get("/:mentorId", getMentorById);
+
+
+router.get(
+  "/mentees",
+  authMiddleware,
+  getMentorMentees
+);
 
 export default router;

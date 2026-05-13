@@ -7,6 +7,7 @@ import {
   completeSessionService,
   getSessionsByMentorshipService,
   getUpcomingSessionsService,
+  getSessionHistoryService,
 } from "./session.service.js";
 
 //
@@ -54,5 +55,11 @@ export const getSessionsByMentorship = asyncHandler(async (req, res) => {
 //
 export const getUpcomingSessions = asyncHandler(async (req, res) => {
   const sessions = await getUpcomingSessionsService(req.user.id);
+  sendResponse(res, 200, sessions);
+});
+
+
+export const getSessionHistory = asyncHandler(async (req, res) => {
+  const sessions = await getSessionHistoryService(req.user.id);
   sendResponse(res, 200, sessions);
 });

@@ -687,3 +687,45 @@ export const deletePlanService = async (userId, planId) => {
 
 	return { success: true };
 };
+
+
+export const getMentorMenteesService =
+  async (userId) => {
+    const mentorships =
+      await prisma.mentorship.findMany({
+        where: {
+          status: "ACTIVE",
+
+          mentorProfile: {
+            userId,
+          },
+        },
+
+        select: {
+          id: true,
+
+          mentee: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+    return mentorships.map(
+      (item) => ({
+        mentorshipId: item.id,
+        menteeId:
+          item.mentee.id,
+        name: item.mentee.name,
+        avatar:
+          item.mentee.avatar,
+      })
+    );
+  };

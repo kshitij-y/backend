@@ -270,7 +270,25 @@ export const getUpcomingSessionsService = async (userId) => {
       },
     },
     orderBy: { startTime: "asc" },
-    include: { mentorship: true },
+    include: {
+      mentorship: {
+        include: {
+          mentee: {
+            select: {
+              id: true,
+              name: true,
+              avatar: true,
+            },
+          },
+          mentorPlan: {
+            select: {
+              title: true,
+              duration: true,
+            },
+          },
+        },
+      },
+    },
   });
 };
 
@@ -443,3 +461,43 @@ export const rescheduleSessionService = async (userId, sessionId, body) => {
 
   return updated;
 };
+
+
+export const getSessionHistoryService =
+  async (userId) => {
+    return prisma.session.findMany({
+      where: {
+        mentorship: {
+          mentorProfile: {
+            userId,
+          },
+        },
+
+        status: {
+          in: [
+            "COMPLETED",
+            "CANCELLED",
+            "MISSED",
+          ],
+        },
+      },
+
+      include: {
+        mentorship: {
+          include: {
+            mentee: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
+      },
+
+      orderBy: {
+        startTime: "desc",
+      },
+    });
+  };

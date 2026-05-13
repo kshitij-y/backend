@@ -7,12 +7,14 @@ import {
   completeSession,
   getSessionsByMentorship,
   getUpcomingSessions,
+  getSessionHistory,
 } from "./session.controller.js";
 
 const router = express.Router();
 
 router.post("/", authMiddleware, createSession);
 router.get("/upcoming", authMiddleware, getUpcomingSessions);
+router.get("/history", authMiddleware,getSessionHistory);
 router.get("/mentorship/:mentorshipId", authMiddleware, getSessionsByMentorship);
 router.patch("/:id/reschedule", authMiddleware, rescheduleSession);
 router.patch("/:id/cancel", authMiddleware, cancelSession);
