@@ -11,9 +11,7 @@ import authMiddleware from "../../shared/middleware/auth.middleware.js";
 
 const router = express.Router();
 
-//
-// PROTECTED
-//
+
 router.post("/", authMiddleware, createMentorship);
 
 router.get("/me", authMiddleware, getMyMentorships);

@@ -1,10 +1,7 @@
 import prisma from "../../config/db.js";
 import streamClient from "../../config/stream.js";
-//
-// CREATE MENTORSHIP
-//
+
 export const createMentorshipService = async (menteeId, mentorId, planId) => {
-	// 1. mentor must exist
 	const mentor = await prisma.user.findUnique({
 		where: { id: mentorId },
 	});
@@ -20,7 +17,6 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 		throw error;
 	}
 
-	// 2. plan must belong to mentor
 	const mentorProfile = await prisma.mentorProfile.findUnique({
 		where: { userId: mentorId },
 		select: { id: true },
@@ -42,22 +38,10 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 		throw error;
 	}
 
-	// 3. prevent duplicate ACTIVE mentorship
-	//
-	// Requirement 10.1: query for an existing Mentorship where mentorProfileId matches the
-	// target mentor, menteeId matches the requesting mentee, and status is "ACTIVE".
-	//
-	// IMPORTANT: the filter uses `mentorProfileId` (the MentorProfile primary key), NOT
-	// `mentorId` (the User ID). `mentorProfile.id` was resolved above via
-	// `prisma.mentorProfile.findUnique({ where: { userId: mentorId } })`, so this correctly
-	// enforces profile-level uniqueness rather than accidentally checking the raw user ID.
-	//
-	// Requirement 10.3: only ACTIVE mentorships block re-creation. A previous mentorship
-	// with status COMPLETED or CANCELLED will not match this query, so a new mentorship
-	// with the same mentor–mentee pair is allowed in that case.
+
 	const existing = await prisma.mentorship.findFirst({
 		where: {
-			mentorProfileId: mentorProfile.id, // MentorProfile.id (PK), not User.id
+			mentorProfileId: mentorProfile.id,
 			menteeId,
 			status: "ACTIVE",
 		},
@@ -69,7 +53,6 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 		throw error;
 	}
 
-	// 4. calculate dates
 	const startDate = new Date();
 	const endDate = new Date();
 
@@ -87,7 +70,6 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 			throw new Error("Invalid plan type");
 	}
 
-	// 5. create mentorship
 	const mentorship = await prisma.mentorship.create({
 		data: {
 			mentorProfileId: mentorProfile.id,
@@ -111,9 +93,7 @@ export const createMentorshipService = async (menteeId, mentorId, planId) => {
 	return mentorship;
 };
 
-//
-// GET MY MENTORSHIPS
-//
+
 export const getMyMentorshipsService = async (userId) => {
 	return await prisma.mentorship.findMany({
 		where: {
@@ -152,9 +132,7 @@ export const getMyMentorshipsService = async (userId) => {
 	});
 };
 
-//
-// GET SINGLE
-//
+
 export const getMentorshipByIdService = async (userId, id) => {
 	const mentorship = await prisma.mentorship.findUnique({
 		where: { id },
@@ -175,7 +153,6 @@ export const getMentorshipByIdService = async (userId, id) => {
 		throw error;
 	}
 
-	// security: only participants can view
 	if (
 		mentorship.mentorProfile.userId !== userId &&
 		mentorship.menteeId !== userId
@@ -188,9 +165,6 @@ export const getMentorshipByIdService = async (userId, id) => {
 	return mentorship;
 };
 
-//
-// UPDATE STATUS
-//
 export const updateMentorshipStatusService = async (userId, id, status) => {
 	const mentorship = await prisma.mentorship.findUnique({
 		where: { id },
@@ -207,7 +181,6 @@ export const updateMentorshipStatusService = async (userId, id, status) => {
 		throw error;
 	}
 
-	// only mentor can update
 	if (mentorship.mentorProfile.userId !== userId) {
 		const error = new Error("Only mentor can update status");
 		error.statusCode = 403;
@@ -223,11 +196,9 @@ export const updateMentorshipStatusService = async (userId, id, status) => {
 };
 
 export const attachStreamChannelToMentorshipService = async (
-  mentorshipId
+	mentorshipId
 ) => {
-  //
-  // 1. fetch mentorship
-  //
+
 	const mentorship = await prisma.mentorship.findUnique({
 		where: {
 			id: mentorshipId,
@@ -244,22 +215,17 @@ export const attachStreamChannelToMentorshipService = async (
 		},
 	});
 
-  if (!mentorship) {
-    const error = new Error("Mentorship not found");
-    error.statusCode = 404;
-    throw error;
-  }
+	if (!mentorship) {
+		const error = new Error("Mentorship not found");
+		error.statusCode = 404;
+		throw error;
+	}
 
-  //
-  // 2. already connected
-  //
-  if (mentorship.streamChannelId) {
-    return mentorship;
-  }
 
-  //
-  // 3. sync users to stream
-  //
+	if (mentorship.streamChannelId) {
+		return mentorship;
+	}
+
 	await streamClient.upsertUsers([
 		{
 			id: mentorship.mentorProfile.user.id,
@@ -274,30 +240,22 @@ export const attachStreamChannelToMentorshipService = async (
 		},
 	]);
 
-  //
-  // 4. generate channel id
-  //
 	const streamChannelId = `mentorship-${mentorship.id}`;
 
-  //
-  // 5. create channel
-  //
-  const channel = streamClient.channel(
-    "messaging",
-    streamChannelId,
-    {
+	const channel = streamClient.channel(
+		"messaging",
+		streamChannelId,
+		{
 			created_by_id: mentorship.mentee.id,
 
 			members: [
 				mentorship.mentorProfile.user.id,
 				mentorship.mentee.id,
 			],
-    }
-  );
+		}
+	);
 
-  //
-  // 6. create/get channel
-  //
+
 	try {
 		await channel.create();
 	} catch (error) {
@@ -314,17 +272,14 @@ export const attachStreamChannelToMentorshipService = async (
 		}
 	}
 
-  //
-  // 7. save stream channel id
-  //
-  const updatedMentorship = await prisma.mentorship.update({
-    where: {
-      id: mentorship.id,
-    },
+	const updatedMentorship = await prisma.mentorship.update({
+		where: {
+			id: mentorship.id,
+		},
 
-    data: {
-      streamChannelId,
-    },
+		data: {
+			streamChannelId,
+		},
 
 		include: {
 			mentorProfile: {
@@ -349,7 +304,7 @@ export const attachStreamChannelToMentorshipService = async (
 
 			mentorPlan: true,
 		},
-  });
+	});
 
-  return updatedMentorship;
+	return updatedMentorship;
 };

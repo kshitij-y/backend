@@ -15,9 +15,7 @@ export const createMentorship = asyncHandler(
   async (req, res) => {
     const { mentorId, planId } = req.body;
 
-    //
-    // 1. create mentorship
-    //
+
     const mentorship =
       await createMentorshipService(
         req.user.id,
@@ -25,9 +23,7 @@ export const createMentorship = asyncHandler(
         planId
       );
 
-    //
-    // 2. attach stream channel
-    //
+
     let updatedMentorship = mentorship;
 
     try {
@@ -42,9 +38,6 @@ export const createMentorship = asyncHandler(
       );
     }
 
-    //
-    // 3. send response
-    //
     sendResponse(
       res,
       201,
@@ -54,18 +47,13 @@ export const createMentorship = asyncHandler(
   }
 );
 
-//
-// GET MY
-//
 export const getMyMentorships = asyncHandler(async (req, res) => {
   const data = await getMyMentorshipsService(req.user.id);
 
   sendResponse(res, 200, data);
 });
 
-//
-// GET BY ID
-//
+
 export const getMentorshipById = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -74,9 +62,7 @@ export const getMentorshipById = asyncHandler(async (req, res) => {
   sendResponse(res, 200, data);
 });
 
-//
-// UPDATE STATUS
-//
+
 export const updateMentorshipStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -90,9 +76,7 @@ export const updateMentorshipStatus = asyncHandler(async (req, res) => {
   sendResponse(res, 200, updated, "Status updated");
 });
 
-//
-// SCHEDULE SESSION (deprecated)
-//
+
 export const scheduleMentorship = asyncHandler(async (req, res) => {
   sendResponse(res, 410, null, "This endpoint is deprecated. Use /api/sessions instead.");
 });
